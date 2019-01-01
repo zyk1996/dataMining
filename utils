@@ -1,0 +1,262 @@
+package com.utils;
+
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.*;
+
+public class Utils{
+    //用于从文件中获取数据集
+    public static ArrayList<ArrayList<String>> loadDataSet(String file) throws IOException {
+        ArrayList<ArrayList<String>> dataSet=new ArrayList<ArrayList<String>>();
+        FileInputStream fis=new FileInputStream(file);
+        InputStreamReader isr=new InputStreamReader(fis,"UTF-8");
+        BufferedReader br=new BufferedReader(isr);
+        String line="";
+        line=br.readLine();
+        while((line=br.readLine())!=null){
+            String[] words=line.split(",");
+            ArrayList<String> data=new ArrayList<String>();
+            for(int i=0;i<words.length;i++){
+                data.add(words[i]);
+            }
+            dataSet.add(data);
+        }
+        br.close();
+        isr.close();
+        fis.close();
+        return dataSet;
+    }
+    //用于从文件中获取特征
+    public static ArrayList<String> loadFeature(String file) throws IOException{
+        FileInputStream fis=new FileInputStream(file);
+        InputStreamReader isr=new InputStreamReader(fis,"UTF-8");
+        BufferedReader br=new BufferedReader(isr);
+
+        String[] line=br.readLine().split(",");
+        ArrayList<String> feature=new ArrayList<String>();
+        for(int i=0;i<line.length-1;i++){
+            feature.add(line[i]);
+        }
+        br.close();
+        isr.close();
+        fis.close();
+        return feature;
+    }
+    //用于获得数据集中的类别列表
+    public static ArrayList<String> getClassList(ArrayList<ArrayList<String>> dataSet){
+        ArrayList<String> classList=new ArrayList<String>();
+        int length=dataSet.get(0).size();
+        for(ArrayList<String> data:dataSet){
+            String label=data.get(length-1);
+            classList.add(label);
+        }
+        return classList;
+    }
+    //返回数据集中的特征数
+    public static int featureNum(ArrayList<ArrayList<String>> dataList){
+        int len=dataList.get(0).size()-1;
+        return len;
+    }
+    //用于获得数据集中第index列的map映射，方便后续的遍历value和计算熵
+    public static Map<String,Integer> getSubMap(ArrayList<ArrayList<String>> dataSet, int index){
+        int total=dataSet.size();
+        Map<String,Integer> subMap=new HashMap();
+        for(ArrayList<String> data:dataSet){
+            String lable=data.get(index);
+            if(subMap.get(lable)==null){
+                subMap.put(lable,1);
+            }else{
+                subMap.put(lable,subMap.get(lable)+1);
+            }
+        }
+        return subMap;
+    }
+    //打印map，用于debug的时候
+    public static void showMap(Map<String,Integer> map){
+        for(Map.Entry<String,Integer> entry:map.entrySet()){
+            System.out.println(entry.getKey()+":"+entry.getValue());
+        }
+    }
+    //求熵
+    public static double getEntropy(ArrayList<ArrayList<String>> dataSet,int index){
+        int total=dataSet.size();
+        Map<String,Integer> subMap=getSubMap(dataSet,index);
+        double entropy=0;
+        for(Map.Entry<String,Integer> entry:subMap.entrySet()){
+            double temp=entry.getValue()*1.0/total;
+            entropy+=temp*(Math.log(temp)/Math.log(2));
+        }
+        return -entropy;
+    }
+    //求信息增益最大的分割点
+    public static String bestFeatureSplitID3(ArrayList<ArrayList<String>> dataSet,ArrayList<String> featureList){
+        int length=dataSet.get(0).size();
+        double totalEntropy=getEntropy(dataSet,length-1);
+
+
+
+        int featureNum=dataSet.get(0).size()-1;
+        int index=-1;
+        double maxInfoGain=-1;
+        for(int i=0;i<featureNum;i++){
+            double entropy=getEntropy(dataSet,i);
+            Map<String,Integer> map=getSubMap(dataSet,i);//获得该特征下的map
+            ArrayList<String> lableList=new ArrayList<String>();
+            double entropySum=0;
+
+            for(Map.Entry<String,Integer> entry:map.entrySet()){//这里的Di就是map中的特征的value值
+                Map<String,Integer> subMap=new HashMap();
+
+
+                for(ArrayList<String> data:dataSet){
+                    if(data.get(i).compareTo(entry.getKey())==0){
+                        if(subMap.get(data.get(length-1))==null){
+
+                            subMap.put(data.get(length-1),1);
+                        }else{
+                            subMap.put(data.get(length-1),subMap.get(data.get(length-1))+1);
+                        }
+                    }
+                }
+                double x=0;
+                for(Map.Entry<String,Integer> subEntry:subMap.entrySet()){
+                    double temp=subEntry.getValue()*1.0/entry.getValue();
+                    x+=temp*(Math.log(temp)/Math.log(2));
+                }
+
+                entropySum+=-x*(entry.getValue())/dataSet.size();
+            }
+            entropySum=totalEntropy-entropySum;
+            if(entropySum>maxInfoGain){
+                index=i;
+                maxInfoGain=entropySum;
+            }
+        }
+        return featureList.get(index);
+    }
+    //求信息增益率最大的分割点
+    public static String bestFeatureSplitC45(ArrayList<ArrayList<String>> dataSet,ArrayList<String> featureList){
+        int length=dataSet.get(0).size();
+        double totalEntropy=getEntropy(dataSet,length-1);
+
+
+
+        int featureNum=dataSet.get(0).size()-1;
+        int index=-1;
+        double maxInfoGainlv=-1;
+        for(int i=0;i<featureNum;i++){
+            double entropy=getEntropy(dataSet,i);
+            Map<String,Integer> map=getSubMap(dataSet,i);//获得该特征下的map
+            ArrayList<String> lableList=new ArrayList<String>();
+            double entropySum=0;
+            double h=0;
+            double tmp=0;
+
+            for(Map.Entry<String,Integer> entry:map.entrySet()){//这里的Di就是map中的特征的value值
+                Map<String,Integer> subMap=new HashMap();
+
+
+                for(ArrayList<String> data:dataSet){
+                    if(data.get(i).compareTo(entry.getKey())==0){
+                        if(subMap.get(data.get(length-1))==null){
+
+                            subMap.put(data.get(length-1),1);
+                        }else{
+                            subMap.put(data.get(length-1),subMap.get(data.get(length-1))+1);
+                        }
+                    }
+                }
+                double x=0;
+                for(Map.Entry<String,Integer> subEntry:subMap.entrySet()){
+                    double temp=subEntry.getValue()*1.0/entry.getValue();
+                    x+=temp*(Math.log(temp)/Math.log(2));
+                }
+                double t=1.0*(entry.getValue())/dataSet.size();
+
+                entropySum+=-x*t;
+                h+=-t*(Math.log(t)/Math.log(2));
+
+            }
+            entropySum=totalEntropy-entropySum;
+            tmp=entropySum/h;
+            if(tmp>maxInfoGainlv){
+                index=i;
+                maxInfoGainlv=tmp;
+            }
+        }
+        return featureList.get(index);
+    }
+    //分割数据集，index为特征的下标
+    public static ArrayList<ArrayList<String>> splitDataSet(ArrayList<ArrayList<String>> dataSet,int index,String value){
+        ArrayList<ArrayList<String>> subDataSet=new ArrayList<ArrayList<String>>();
+        for(ArrayList<String> data:dataSet){
+            if(data.get(index).compareTo(value)==0){
+                ArrayList<String> temp=new ArrayList<String>();
+                for(int i=0;i<data.size();i++){
+                    if(i!=index){
+                        temp.add(data.get(i));
+                    }
+                }
+                subDataSet.add(temp);
+            }
+        }
+        return subDataSet;
+    }
+    //list-》map
+    public static Map<String,Integer> arrayToMap(ArrayList<String> list){
+        Map<String,Integer> map=new HashMap();
+        for(String word:list){
+            if(map.get(word)==null){
+                map.put(word,1);
+            }else{
+                map.put(word,map.get(word)+1);
+            }
+        }
+        return map;
+    }
+    //求label中某个数量最多的类别
+    public static String major(ArrayList<String> labelList){
+        Map<String,Integer> map=arrayToMap(labelList);
+        int max=0;
+        String label="";
+        for(Map.Entry<String,Integer> entry:map.entrySet()){
+            if(entry.getValue()>max){
+                label=entry.getKey();
+            }
+        }
+        return label;
+    }
+
+    public static Set<String> getValueFromDataSet(ArrayList<ArrayList<String>> dataSet, int index){
+        ArrayList<String> values=new ArrayList<String>();
+        for(ArrayList<String> data:dataSet){
+            try{
+                values.add(data.get(index));
+            }catch(Exception e){
+
+                System.out.println("index is "+index);
+            }
+        }
+        Set<String> set=new HashSet();
+        for(String value:values){
+            set.add(value);
+        }
+        return set;
+    }
+
+    public static ArrayList<String> copyArrayList(ArrayList<String> src){
+        ArrayList<String> dest=new ArrayList<String>();
+        for(String s:src){
+            dest.add(s);
+        }
+        return dest;
+    }
+    public static void showArrayList(ArrayList<ArrayList<String>> dataSet){
+        for(ArrayList<String> data:dataSet){
+            System.out.println(data);
+        }
+    }
+
+}
